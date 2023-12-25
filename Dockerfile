@@ -12,7 +12,7 @@ COPY . .
 RUN go install github.com/go-task/task/v3/cmd/task@latest
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-RUN ./bin/task build
+RUN task build
 
 FROM alpine:latest
 
