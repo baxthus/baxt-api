@@ -1,0 +1,54 @@
+#file: noinspection YAMLSchemaValidation
+version: '3'
+
+dotenv: ['.env', '{{.ENV}}/.env', '{{.HOME}}/.env']
+
+vars:
+  PROJECT_NAME:
+    sh: grep -m1 "^module " go.mod | awk '{print $2}'
+
+tasks:
+  build: go build {{.PROJECT_NAME}}
+
+  start: go run {{.PROJECT_NAME}}
+
+  start-env:
+    deps: [setup-env]
+    cmds:
+      - defer: { task: clear-env }
+      - task: start
+
+  dev:
+    watch: true
+    sources:
+      - '**/*.go'
+    cmds:
+      - task: start
+
+  dev-env:
+    deps: [setup-env]
+    watch: true
+    sources:
+      - '**/*.go'
+    cmds:
+        - defer: { task: clear-env }
+          ignore_error: true
+        - task: start
+
+  test: go test {{.PROJECT_NAME}}
+
+  test-env:
+    deps: [setup-env]
+    cmds:
+      - defer: { task: clear-env }
+      - task: test
+
+  setup-env:
+    cmds:
+      - doppler setup --no-interactive --project {{.PROJECT_NAME}} --config dev
+      - doppler secrets download --no-file --format=env > .env
+
+  clear-env:
+    internal: true
+    cmds:
+      - rm -f .env
