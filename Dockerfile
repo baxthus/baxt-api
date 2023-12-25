@@ -16,7 +16,7 @@ RUN task build
 
 FROM alpine:latest
 
-COPY --from=${PROJECT_NAME} /build/server /server
-COPY --from=${PROJECT_NAME} /build/public /public
+COPY --from=builder /build/${PROJECT_NAME} /server
+COPY --from=builder /build/public /public
 
 CMD ["/server"]
