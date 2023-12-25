@@ -8,9 +8,15 @@ vars:
     sh: grep -m1 "^module " go.mod | awk '{print $2}'
 
 tasks:
-  build: go build {{.PROJECT_NAME}}
+  build:
+    cmds:
+      - task: get
+      - go build
 
-  start: go run {{.PROJECT_NAME}}
+  start:
+    cmds:
+      - task: get
+      - go run
 
   start-env:
     deps: [setup-env]
@@ -35,13 +41,18 @@ tasks:
           ignore_error: true
         - task: start
 
-  test: go test {{.PROJECT_NAME}}
+  test:
+    cmds:
+      - task: get
+      - go test {{.PROJECT_NAME}}
 
   test-env:
     deps: [setup-env]
     cmds:
       - defer: { task: clear-env }
       - task: test
+
+  get: go get {{.PROJECT_NAME}}
 
   setup-env:
     cmds:
