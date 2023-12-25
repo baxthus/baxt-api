@@ -1,7 +1,7 @@
 #file: noinspection YAMLSchemaValidation
 version: '3'
 
-dotenv: ['.env', '{{.ENV}}/.env', '{{.HOME}}/.env']
+dotenv: [ '.env', '{{.ENV}}/.env', '{{.HOME}}/.env' ]
 
 vars:
   PROJECT_NAME:
@@ -19,7 +19,7 @@ tasks:
       - go run
 
   start-env:
-    deps: [setup-env]
+    deps: [ setup-env ]
     cmds:
       - defer: { task: clear-env }
       - task: start
@@ -32,14 +32,14 @@ tasks:
       - task: start
 
   dev-env:
-    deps: [setup-env]
+    deps: [ setup-env ]
     watch: true
     sources:
       - '**/*.go'
     cmds:
-        - defer: { task: clear-env }
-          ignore_error: true
-        - task: start
+      - defer: { task: clear-env }
+        ignore_error: true
+      - task: start
 
   test:
     cmds:
@@ -47,7 +47,7 @@ tasks:
       - go test {{.PROJECT_NAME}}
 
   test-env:
-    deps: [setup-env]
+    deps: [ setup-env ]
     cmds:
       - defer: { task: clear-env }
       - task: test

@@ -10,17 +10,47 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"net"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 )
 
 var IpEndpoint = endpoint.Endpoint{
 	Method: fiber.MethodGet,
 	Url:    "/ip",
 	Handler: func(ctx *fiber.Ctx) error {
+		if os.Getenv("IP_API_RATE_LIMIT") != "" {
+			secondsToWait, err := time.ParseDuration(os.Getenv("IP_API_RATE_LIMIT") + "s")
+			if err != nil {
+				ctx.Response().SetStatusCode(fiber.StatusInternalServerError)
+				return ctx.JSON(fiber.Map{
+					"success": false,
+					"message": "Error while parsing the rate limit",
+				})
+			}
+
+			if time.Now().Before(time.Now().Add(secondsToWait)) {
+				ctx.Response().SetStatusCode(fiber.StatusTooManyRequests)
+				return ctx.JSON(fiber.Map{
+					"success": false,
+					"message": "We are being rate limited, please try again later",
+				})
+			}
+
+			err = os.Unsetenv("IP_API_RATE_LIMIT")
+			if err != nil {
+				ctx.Response().SetStatusCode(fiber.StatusInternalServerError)
+				return ctx.JSON(fiber.Map{
+					"success": false,
+					"message": "Error while setting the rate limit",
+				})
+			}
+		}
+
 		// Get ip
 		ip, _, err := net.SplitHostPort(ctx.Context().RemoteAddr().String())
 		// If the IP is 0.0.0.0, use Cloudflare IP for testing
-		if ip == "127.0.0.1" {
+		if ip == "127.0.0.1" || ip == "0.0.0.0" {
 			ip = "1.1.1.1"
 		}
 		if err != nil {
@@ -32,13 +62,24 @@ var IpEndpoint = endpoint.Endpoint{
 		}
 
 		// Get ip info
-		res, err := http.Get("https://ipwho.is/" + ip)
+		res, err := http.Get("http://ip-api.com/json/" + ip + "?fields=51638267")
 		if err != nil || res.StatusCode != 200 {
 			ctx.Response().SetStatusCode(fiber.StatusBadGateway)
 			return ctx.JSON(fiber.Map{
 				"success": false,
 				"message": "Error while making the request to the IP Whois API",
 			})
+		}
+
+		if res.Header.Get("X-Rl") == "0" {
+			err := os.Setenv("IP_API_RATE_LIMIT", res.Header.Get("X-Ttl"))
+			if err != nil {
+				ctx.Response().SetStatusCode(fiber.StatusInternalServerError)
+				return ctx.JSON(fiber.Map{
+					"success": false,
+					"message": "Error while setting the rate limit",
+				})
+			}
 		}
 
 		defer utils.HandleBody(res.Body)
@@ -55,7 +96,7 @@ var IpEndpoint = endpoint.Endpoint{
 		}
 
 		// Sometimes the API returns a 200 but the response is an error
-		if !data.Success {
+		if data.Status != "success" {
 			ctx.Response().SetStatusCode(fiber.StatusBadGateway)
 			return ctx.JSON(fiber.Map{
 				"success": false,
@@ -64,21 +105,24 @@ var IpEndpoint = endpoint.Endpoint{
 			})
 		}
 
-		mainField := fmt.Sprintf("**IP:** %s\n**Type:** %s", data.IP, data.Type)
+		mainField := fmt.Sprintf(
+			"**IP:** %s\n**Mobile:** %t\n**Proxy:** %t\n**Hosting:** %t",
+			data.Query, data.Mobile, data.Proxy, data.Hosting,
+		)
 
 		locationField := fmt.Sprintf(
 			"**Continent:** %s\n**Country:** %s :flag_%s:\n**Region:** %s\n**City:** %s\n**Latitude:** %v\n**Longitude:** %v\n**Postal:** %s",
-			data.Continent, data.Country, strings.ToLower(data.CountryCode), data.Region, data.City, data.Latitude, data.Longitude, data.Postal,
+			data.Continent, data.Country, strings.ToLower(data.CountryCode), data.RegionName, data.City, data.Latitude, data.Longitude, data.Postal,
 		)
 
 		connectionField := fmt.Sprintf(
-			"**ASN:** %v\n**Organization:** %s\n**ISP:** %s\n**Domain:** %s",
-			data.Connection.ASN, data.Connection.Org, data.Connection.ISP, data.Connection.Domain,
+			"**AS:** %v\n**Organization:** %s\n**ISP:** %s",
+			data.As, data.Org, data.ISP,
 		)
 
 		timezoneFiled := fmt.Sprintf(
-			"**ID:** %s\n**Offset:** %v\n**UTC:** %s",
-			data.Timezone.ID, data.Timezone.Offset, data.Timezone.UTC,
+			"**ID:** %s\n**Offset:** %v",
+			data.Timezone, data.Offset,
 		)
 
 		embed := discord.Embed{
@@ -153,27 +197,23 @@ var IpEndpoint = endpoint.Endpoint{
 }
 
 type Whois struct {
-	IP          string  `json:"ip"`
-	Success     bool    `json:"success"`
+	Status      string  `json:"status"`
 	Message     string  `json:"message"`
-	Type        string  `json:"type"`
 	Continent   string  `json:"continent"`
 	Country     string  `json:"country"`
-	CountryCode string  `json:"country_code"`
-	Region      string  `json:"region"`
+	CountryCode string  `json:"countryCode"`
+	RegionName  string  `json:"regionName"`
 	City        string  `json:"city"`
-	Latitude    float32 `json:"latitude"`
-	Longitude   float32 `json:"longitude"`
-	Postal      string  `json:"postal"`
-	Connection  struct {
-		ASN    int    `json:"asn"`
-		Org    string `json:"org"`
-		ISP    string `json:"isp"`
-		Domain string `json:"domain"`
-	} `json:"connection"`
-	Timezone struct {
-		ID     string `json:"id"`
-		Offset int    `json:"offset"`
-		UTC    string `json:"utc"`
-	} `json:"timezone"`
+	Postal      string  `json:"zip"`
+	Latitude    float32 `json:"lat"`
+	Longitude   float32 `json:"lon"`
+	Timezone    string  `json:"timezone"`
+	Offset      int     `json:"offset"`
+	ISP         string  `json:"isp"`
+	Org         string  `json:"org"`
+	As          string  `json:"as"`
+	Mobile      bool    `json:"mobile"`
+	Proxy       bool    `json:"proxy"`
+	Hosting     bool    `json:"hosting"`
+	Query       string  `json:"query"`
 }
