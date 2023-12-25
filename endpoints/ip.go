@@ -19,10 +19,9 @@ var IpEndpoint = endpoint.Endpoint{
 	Handler: func(ctx *fiber.Ctx) error {
 		// Get ip
 		ip, _, err := net.SplitHostPort(ctx.Context().RemoteAddr().String())
-		// If the IP is 0.0.0.0, it means that the request is coming from localhost
-		if ip == "0.0.0.0" {
-			// Random Google IP for test purposes
-			ip = "142.250.218.174"
+		// If the IP is 0.0.0.0, use Cloudflare IP for testing
+		if ip == "127.0.0.1" {
+			ip = "1.1.1.1"
 		}
 		if err != nil {
 			ctx.Response().SetStatusCode(fiber.StatusInternalServerError)
@@ -61,6 +60,7 @@ var IpEndpoint = endpoint.Endpoint{
 			return ctx.JSON(fiber.Map{
 				"success": false,
 				"message": "The IP Whois API returned an error",
+				"error":   data.Message,
 			})
 		}
 
@@ -155,6 +155,7 @@ var IpEndpoint = endpoint.Endpoint{
 type Whois struct {
 	IP          string  `json:"ip"`
 	Success     bool    `json:"success"`
+	Message     string  `json:"message"`
 	Type        string  `json:"type"`
 	Continent   string  `json:"continent"`
 	Country     string  `json:"country"`
