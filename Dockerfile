@@ -5,7 +5,6 @@ WORKDIR /build
 COPY go.* ./
 RUN go mod download
 
-ENV PROJECT_NAME $(grep -m1 "^module" go.mod | awk '{print $2}')
 
 COPY . .
 
@@ -16,7 +15,7 @@ RUN task build
 
 FROM alpine:latest
 
-COPY --from=builder /build/$PROJECT_NAME /server
+COPY --from=builder /build/server /server
 COPY --from=builder /build/public /public
 
 CMD ["/server"]

@@ -11,7 +11,7 @@ tasks:
   build:
     cmds:
       - task: get
-      - go build
+      - go build -o server
 
   start:
     cmds:
