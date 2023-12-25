@@ -12,7 +12,7 @@ COPY . .
 RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-RUN task build
+RUN ./bin/task build
 
 FROM alpine:latest
 
