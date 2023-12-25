@@ -9,7 +9,7 @@ ENV PROJECT_NAME $(grep -m1 "^module" go.mod | awk '{print $2}')
 
 COPY . .
 
-RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
+RUN go install github.com/go-task/task/v3/cmd/task@latest
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN ./bin/task build
